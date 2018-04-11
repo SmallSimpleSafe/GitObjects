@@ -2,14 +2,26 @@ import java.io.*;
 import java.util.*;
 import java.security.MessageDigest;
 
-class Exec {
+
+/**
+ * The Exec class has methods for calling Git <p>
+ * Uses java.lang.ProcessBuilder to make a Process <br>
+ * and java.security.MessageDigest to calculate SHA
+ *
+ * @author  Akif Eyler
+ * @see     java.lang.ProcessBuilder
+ * @see     java.security.MessageDigest
+ */
+ public class Exec {
 
     final File root; //git repository
     final ProcessBuilder PB = new ProcessBuilder();
     final byte[] buf = new byte[MB];
     
-    final static int LARGE = 2000; //limit for printing data
-    final static int MB = 5*1024*1024;  //5 MBytes
+    /** limit for printing is 5 KBytes -- larger Entries are not printed */
+    final static public int LARGE = 5*1024;
+    /** maximum buffer size for accessing Git data (5 MBytes) */
+    final static public int MB = LARGE*1024;
     final static MessageDigest MD;  //SHA encoder
     static {
         try {
@@ -18,7 +30,10 @@ class Exec {
             throw new RuntimeException(x);
         }
     } 
+
+    /** Makes an instance in the current folder */
     public Exec() { this(new File(".")); }
+    /** Makes an instance residing in File f */
     public Exec(File f) {
        try {
           root = f.isDirectory()? f.getCanonicalFile(): f.getParentFile();
@@ -27,24 +42,28 @@ class Exec {
 	      throw new RuntimeException(x);
 	   }
     }
-    public byte[] getObjectData(String h) { //4 digits may suffice
+    /** returns the bytes of Object h -- 4 digits may suffice */
+    public byte[] getObjectData(String h) { //
         String[] CATF = {"git", "cat-file", "-p", h};
         int n = exec(CATF); 
         byte[] ba = new byte[n];
         System.arraycopy(buf, 0 , ba, 0, n);
         return ba;
     }
+    /** returns the size of Object h -- 4 digits may suffice */
     public int getObjectSize(String h) {
         String[] CATF = {"git", "cat-file", "-s", h};
         int n = exec(CATF);
         String s = new String(buf, 0, n-1); //skip LF
         return Integer.parseInt(s);
     }
+    /** returns the type of Object h -- 4 digits may suffice */
     public String getObjectType(String h) {
         String[] CATF = {"git", "cat-file", "-t", h};
         int n = exec(CATF);
         return new String(buf, 0, n-1); //skip LF
     }
+    /** prints the bytes of Object h -- 4 digits may suffice */
     public void printObjectData(String h) {
         int n = getObjectSize(h);
         if (n > LARGE) 
@@ -55,14 +74,20 @@ class Exec {
             System.out.println();
         }
     }
+    /** returns the full SHA of Object h -- even if h is full-length */
     public String getFullSHA(String h) {
-        //if (h.length() == 40) return h; calculate
+        //if (h.length() == 40) return h;
         String t = getObjectType(h);
         byte[] b = getObjectData(h);
         return calculateSHA(t, b);
     }
+    /** 
+     * Executes the command indicated by the sequence of Strings <p>
+     * Examples: execute("ls");   execute("git", "status"); <p>
+     * <p>
+     * invokes private method exec() and splits the result into lines
+     * */
     public String[] execute(String... a) { 
-    //invoke  exec() and split the result into lines
         int n = exec(a);
         String s = new String(buf, 0, n);
         return s.length() == 0 ? new String[0] : s.split("\n");
@@ -108,10 +133,14 @@ class Exec {
         System.arraycopy(buf, 0 , ba, 0, n);
         return n;
     }
+    /** 
+     * Returns the SHA of a file by two methods <p>
+     * 1. invoke static method toSHA(File) <br>
+     * 2. call shasum in an external Process
+     */
     public void toSHA2(File f) throws IOException {
         System.out.println(f.getName());
-        InputStream in = new FileInputStream(f);
-        String h = toSHA(toArray(in)); //IOException
+        String h = toSHA(f); //IOException
         System.out.println(h);
         String[] SHA = {"shasum", f.toString()};
         byte[] ba = new byte[40];
@@ -119,6 +148,7 @@ class Exec {
         String s = new String(ba);
         System.out.println(s+"  "+s.equals(h));
     }
+    /** Verifies and saves the Blob h */
     public void saveBlob(String h, String name) {
         byte[] b = getObjectData(h);
         String s = calculateSHA("blob", b);
@@ -126,6 +156,7 @@ class Exec {
         System.out.println(s+"  "+s.startsWith(h));
         saveToFile(b, new File(name));
     }
+    /** Returns the name of the root directory */
     public String toString() { return root.getName(); }
     
     static String toHex(byte b) {
@@ -138,12 +169,15 @@ class Exec {
         for (int i=0; i<buf.length; i++) hash += toHex(buf[i]);
         return hash;
     }
+    /** Returns the SHA for the byte array given */
     public static String toSHA(byte[] ba) {
         return toHex(MD.digest(ba));  //java.security.MessageDigest
     }
+    /** Returns the SHA for File f */
     public static String toSHA(File f) throws IOException {
         return toSHA(toArray(new FileInputStream(f))); 
     }
+    /** Returns the SHA for a Git object -- basis for verification */
     public static String calculateSHA(String type, byte[] b) {
            byte[] a = (type+" "+b.length).getBytes();
            byte[] ab = new byte[a.length+1+b.length];
@@ -151,6 +185,7 @@ class Exec {
            System.arraycopy(b, 0, ab, a.length+1, b.length);
            return toSHA(ab);
     }
+    /** Saves the bytes into File f -- overwrites f without warning */
     public static void saveToFile(byte[] b, File f) {
         try (OutputStream out = new FileOutputStream(f)) {
             out.write(b); out.close();
@@ -158,6 +193,7 @@ class Exec {
             throw new RuntimeException(x);
         }
     }
+    /** Reads the bytes available into a byte array */
     public static byte[] toArray(InputStream in) throws IOException {
         int n = in.available();
         if (n == 0) return new byte[0];
@@ -166,10 +202,12 @@ class Exec {
         if (n == buf.length) return buf;
         else return Arrays.copyOf(buf, n);
     }
+    /** Makes an instance in the current folder */
     public static void main(String[] args) throws IOException {
         Exec G = new Exec();
         G.execute("dir"); //sample shell command
         G.execute("git", "branch", "-v"); //local branches
-        G.saveBlob("64fc", "test.jar"); //sss.jar V2.10
+        G.toSHA2(new File("sss.jar"));
+        //saveBlob("64fc", "test.jar"); //sss.jar V2.10
     }
 }
