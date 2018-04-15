@@ -16,7 +16,7 @@ First, display All Branches in G:  `G.getAllBranches()`
 
 There are 13 branches in our repo. Find the HEAD branch in G:  `h = G.currentHEAD()`
 
-Display All Commits in this branch:  `h.getAllCommits()`
+Display All Commits in this branch:  `h.printAllCommits()`
 
 HEAD branch has 21 commits in this repo
 

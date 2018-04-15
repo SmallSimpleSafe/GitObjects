@@ -10,7 +10,7 @@ G.getAllBranches();
 //find the HEAD branch in G
 h = G.currentHEAD();
 //display All Commits in h
-h.getAllCommits();
+h.printAllCommits();
 //find the last commit in h
 c = h.getLatestCommit();
 //load the tree of c

@@ -108,9 +108,10 @@ import java.security.MessageDigest;
         }
     }
     int exec(String... a) { //fill buf & return number of bytes read
+        Process p = null;
         try { 
-            //Process p = Runtime.getRuntime().exec(a);
-            PB.command(a); Process p = PB.start();
+            //p = Runtime.getRuntime().exec(a);
+            PB.command(a); p = PB.start();
             waitFor(p, 100, 10);  //wait at most 1000 msec
             
             //This requires Java 8 and is too coarse -- polls each second
@@ -124,13 +125,21 @@ import java.security.MessageDigest;
             }
             InputStream in = p.getInputStream();
             int n = in.read(buf, 0, buf.length);
-            p.destroy(); return n;
+            waitFor(p, 5, 10);
+            while (in.available() > 0) {
+                n += in.read(buf, n, buf.length-n);
+                waitFor(p, 5, 10);
+            }
+            return n;
         } catch (IOException x) {
             throw new RuntimeException(x);
+        } finally {
+            p.destroy(); 
         }
     }
     int exec(byte[] ba, String... a) {
-        int n = Math.min(exec(a), ba.length);
+        int k = exec(a);
+        int n = Math.min(k, ba.length);
         System.arraycopy(buf, 0 , ba, 0, n);
         return n;
     }
