@@ -6,6 +6,9 @@ import javax.swing.tree.TreeNode;
  *
  * The Node class models a Git object as a TreeNode <p>
  * <p>
+ * On top of SHA, type, and size defined in Git.Entry,
+ * we also record name and parent for displaying as a Tree <br>
+ * (name and parent is valid only for a particular Commit)
  *
  * @author  Akif Eyler
  * @see     Git documents
@@ -13,22 +16,20 @@ import javax.swing.tree.TreeNode;
 public class Node implements TreeNode {
        final Git.Entry ent;
        final String str;
-       Node par;
-       Node[] data;
-       Node(Git.Entry e, String s, Node p) { ent = e; str = s; par = p; }
+       Node par = null;
+       Node[] data = new Node[0];
+       Node(Git.Entry e, String s, Node p) { 
+           ent = e; str = s; par = p; 
+       }
        Node(Git.Commit c) { 
            this(c, c.toString(), null); 
-           data = new Node[1]; data[0] = c.toTree();
        }
-       Node(Git.Tree t, String s) { 
-           this(t, t+s, null); 
-           data = t.list.toArray(new Node[0]); 
-       }
-       Node(Git.Blob b, String s) { 
-           this(b, b+s, null); 
-           data = new Node[0]; 
-       }
-       void setFields(String n, Node p) { str = n; par = p; }
+       void setParent(Node p) { par = p; }
+       void setData(Node[] a) { data = a; }
+       /** returns the Git object in this Node */
+       public Git.Entry getObject() { return ent; }
+       /** human-readable name */
+       public String toString() { return str; }
        /** returns null (not used) */
        public Enumeration<Node> children() { return null; }
        /** false for Commit and Tree, true for Blob */
@@ -47,22 +48,14 @@ public class Node implements TreeNode {
        }
        /** parent may be a Commit or a Tree */
        public TreeNode getParent() { return par; }
-       /** human-readable name */
-       public String toString() { return str; }
        /** the Commit that contains this Node */
-       public Node getRoot() { 
+       public Git.Entry getRoot() { 
            Node c = this; 
            while (c != null) {
                Node p = c.par;
                if (p == null) break;
                c = p;
            }
-           return c;
+           return c.getObject();
        }
-       /** prints this Entry into std out */
-       public void print() { ent.print(); }
-       /** verifies this Entry using SHA */
-       public void verify() { ent.saveTo(null); }
-       /** verifies and saves this Entry into the given folder */
-       public void saveTo(File dir) { ent.saveTo(dir); }
 }

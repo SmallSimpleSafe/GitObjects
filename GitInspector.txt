@@ -17,6 +17,8 @@ c = h.getLatestCommit();
 t = c.getTree();
 //get its first child
 b = t.getChildAt(0);
+//make a TreeNode
+n = c.toTreeNode();
 //display the tree
-Menu.toTree(t);
+Menu.toTree(n);
 

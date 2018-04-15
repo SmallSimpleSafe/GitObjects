@@ -99,19 +99,19 @@ public class Git {
     void readObjects() {
         String[] BATCH = 
         {"git", "cat-file", "--batch-check", "--batch-all-objects"};
-        nc = 0; nt = 0; nb = 0; OBJ.clear(); int n = 0;
+        nc = 0; nt = 0; nb = 0; OBJ.clear();
         String[] out = X.execute(BATCH);
         System.out.println(out.length+" objects read");
         for (String s : out) try {
             String[] a = s.split(" ");
             String h = a[0]; String type = a[1]; 
             int k = Integer.parseInt(a[2]);
-            newObject(type, h, k); n++;
+            newObject(type, h, k);
 	    } catch (RuntimeException x)  {
 	        System.out.printf("%s in%n%s%n", x, s);
         }
         System.out.print(OBJ.size()+" objects  "+nc+" commits  ");
-        System.out.println(nt+" trees  "+nb+" blobs "+n);
+        System.out.println(nt+" trees  "+nb+" blobs ");
     }
     Blob getBlob(String h) {
         Blob e = (Blob)OBJ.get(h);
@@ -163,11 +163,11 @@ public class Git {
         //System.out.println(c); 
         return c;
     }
-    Node makeTree(String h, String nn, Tree p) {
+    Tree makeTree(String h, String nn) {
         String[] LSTREE = {"git", "ls-tree", "-l", h};
         String[] sa = X.execute(LSTREE); 
-        Tree t = getTree(h); t.list.clear(); 
-        //t.name = nn; t.parent = pp;
+        Tree t = getTree(h); //t.data.clear();
+        if (t.data.size() > 0) return t;
         for (String s : sa) { 
             int k = s.indexOf(32);   //first space
             int i = s.indexOf(32, k+1); //second space
@@ -176,21 +176,19 @@ public class Git {
             String hash = s.substring(i+1, i+41);
             //String size = s.substring(i+41, j); not used
             String name = s.substring(j+1);
-            Node x = null;
+            Entry x = null;
             if (type.equals(TREE)) {
-                x = makeTree(hash, name, t);
+                x = makeTree(hash, name);
             } else if (type.equals(BLOB)) {
-                x = new Node(getBlob(hash));
-                x.setFields(name, t);
+                x = getBlob(hash);
             } else continue;  //submodules not implemented
-            t.add(x, name, p); 
+            t.add(x, name); 
         }
         System.out.println(trim(h)+" "+nn+": "+sa.length);
-        return new Node(t);
+        return t;
     }
     /** Returns the name of the root directory */
     public String toString() { return root.getName(); }
-
 
     /** Branch has a name and the SHA of the Commit it marks */
     public class Branch {
@@ -216,7 +214,7 @@ public class Git {
           while (true) {
              L.add(c); System.out.println(c);
              if (c.hPar1 == null) break;
-             c = (Commit)c.getParent();
+             c = (Commit)c.getParent1();
           }
           return L.toArray(new Commit[0]);
        }
@@ -225,8 +223,6 @@ public class Git {
     /** 
      * Entry is a model of Git objects <p>
      * every object has type, SHA, and size in Git <br>
-     * we also record name and parent for displaying as a Tree <br>
-     * (name and parent is valid only for a particular Commit)
      */
     public abstract class Entry {
        final String type, hash; int size;
@@ -237,11 +233,9 @@ public class Git {
        /** prints this Entry into std out */
        public void print() { System.out.println(this); }
        /** verifies this Entry using SHA */
-       public void verify() { saveTo(null); }
+       public void verify() { saveTo(null, null); }
        /** verifies and saves this Entry into the given folder */
-       public abstract void saveTo(File dir);
-       /** makes a TreeNode */
-       public abstract Node toTree();
+       public abstract void saveTo(File dir, String nam);
     }
 
     /** 
@@ -256,8 +250,13 @@ public class Git {
        long time; String date;
        String name, hPar1, hPar2, author;
        Commit(String h, int k) { super(COMMIT, h, k); }
+       /** returns the actual data (folder structure) in this Commit */
+       public Tree getTree() { 
+           if (hTree == null) return null;
+           return makeTree(hTree, "root");
+       }
        /** returns the previous Commit */
-       public Commit getParent() { 
+       public Commit getParent1() { 
            if (hPar1 == null) return null;
            return getCommit(hPar1);
        }
@@ -266,9 +265,15 @@ public class Git {
            if (hPar2 == null) return null;
            return getCommit(hPar2);
        }
-       /** the actual data (folder structure) in this Commit */
-       public Node toTree() {
-           return makeTree(hTree, "root", this);
+       /** returns the author */
+       public String getAuthor() { return author; }
+       /** returns the time in msec */
+       public long getTime() { return time; }
+       /** the data (folder structure) in a Node for displaying */
+       public Node toTreeNode() {
+           Node n = new Node(this);
+           Node[] na = { getTree().toTreeNode("root", n) };
+           n.setData(na); return n;
        }
        /**  */
        public void print() {
@@ -283,9 +288,10 @@ public class Git {
        /** returns SHA and name */
        public String toString() { return trim(hash)+" -- "+name; }
        /**  */
-       public void saveTo(File dir) { 
+       public void saveTo(File dir, String nam) { 
            System.out.println(this);
-           count = 0; pass = 0; getTree().saveTo(dir);
+           count = 0; pass = 0; 
+           getTree().saveTo(dir, nam);
            System.out.print(count+" blobs ");
            System.out.println(dir==null? pass+" OK" : " written");
        }
@@ -297,36 +303,60 @@ public class Git {
      * the children are stored in an ArrayList
      */
     public class Tree extends Entry {
-       final List<Node> list = new ArrayList<>();
-       Node node = null;
+       final List<Entry> data = new ArrayList<>();
+       final List<String> name = new ArrayList<>();
        Tree(String h, int k) { super(TREE, h, k); }
-       void add(Entry e, String n, Tree p) {
-           Node x = 
-             (e instanceof Tree? new Node((Tree)e) : new Node((Blob)e));
-           x.setFields(n, p); list.add(x);
+       void add(Entry e, String n) {
+           data.add(e); name.add(n); 
        } 
        public String toString() {
-           return trim(hash)+" "+name+": "+list.size(); 
+           return trim(hash)+":  ["+name.size()+"]  "; 
        }
+       /** get the i<sup>th</sup> Name */
+       public String getNameAt(int i) { return name.get(i); }
+       /** get the i<sup>th</sup> Entry */
+       public Entry getChildAt(int i) { return data.get(i); }
+       /** number of Entries under this Tree */
+       public int getChildCount() { return data.size(); }
        /**  */
        public void print() {
            System.out.println(this);
-           for (Entry e : list) e.print();
+           for (int i=0; i<name.size(); i++)
+               System.out.println(data.get(i)+name.get(i));
        }
        /**  */
-       public void saveTo(File dir) {
+       public void saveTo(File dir, String nam) {
            System.out.println(this);
            File f = null;
            if (dir != null) {
-              f = new File(dir, name);
+              f = new File(dir, nam);
               if (f.exists()) 
                  throw new RuntimeException("cannot overwrite "+f);
               if (!f.mkdir()) 
                  throw new RuntimeException("cannot mkdir "+f);
            }
-           for (Entry e : list) e.saveTo(f);
+           for (int i=0; i<name.size(); i++)
+               data.get(i).saveTo(f, name.get(i));
        }
-       public Node toTree() { return new Node(this, parent); }
+       /** makes a TreeNode -- not public */
+       Node toTreeNode(String nam, Node par) {
+           //System.out.println(nam+"  "+data.size());
+           if (data.size() == 0) makeTree(hash, nam);
+           List<Node> L = new ArrayList<>();
+           Node t = new Node(this, this+nam, par);
+           for (int i=0; i<data.size(); i++) {
+               Entry e = data.get(i); 
+               String n = name.get(i);
+               Node x = null;
+               if (e instanceof Blob)
+                  x = new Node(e, e+n, t);
+               if (e instanceof Tree)
+                  x =  ((Tree)e).toTreeNode(n, t);
+               L.add(x);
+           }
+           Node[] na = new Node[L.size()];
+           t.setData(L.toArray(na)); return t;
+       }
     }
 
     /** 
@@ -339,21 +369,20 @@ public class Git {
        Blob(String h, int k) { super(BLOB, h, k); }
        /** returns SHA, name, and file size (uncompressed) */
        public String toString() {
-           return trim(hash)+" "+name+" ("+size+")"; 
+           return trim(hash)+" ("+size+") "; 
        }
        /** prints true if data size and SHA come out as expected */
-       public void saveTo(File dir) {
+       public void saveTo(File dir, String nam) {
            count++; 
            if (data == null) data = X.getObjectData(hash);
            boolean OK = (data.length == size);
            if (OK && size > 0)
              OK = X.calculateSHA(BLOB, data).startsWith(hash);
            if (OK) pass++;
-           System.out.println(trim(hash)+" "+OK+" "+size+" "+name);
-           if (dir != null) X.saveToFile(data, new File(dir, name));
+           System.out.println(trim(hash)+" "+OK+" "+size+" "+nam);
+           if (dir != null) X.saveToFile(data, new File(dir, nam));
            if (data.length > Exec.LARGE) data = null; //discard large data
        }
-       public Node toTree() { return new Node(this, parent); }
     }
 
     static String trim(String h) { 
