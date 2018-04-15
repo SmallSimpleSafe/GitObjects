@@ -78,10 +78,18 @@ tree bcadff  1 items ***
 ============================================================
 ````
 
-#### V2. verfiy() and saveTo(File)
+#### V2. verifiy() and saveTo(File)
+
+We can verify every Blob within a Commit by calculating its SHA 
+
+We can also save to the contents of each Commit into a given folder
 
 #### V3. Objects are cached
 
+Git objects are immutable -- Rather than calculating each object from scratch, we keep them in Map and avoid lengthy calculations
+
 #### V4. TreeNode is separated from Git objects
 
+TreeNode is a useful interface recognized by JTree, simplifing to display the contents of a given Commit.
 
+In earlier versions, Git.Entry implements TreeNode. In V4, the two classes are separated.
