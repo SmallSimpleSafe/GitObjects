@@ -28,8 +28,8 @@ public class Git {
     final static public int M = 6; //abbrev default is 7 chars
     //final static String ABBREV = "--abbrev="+M; for cat-file command
 
-    final static String COMMIT = "commit", TREE = "tree", BLOB = "blob";
-    final static String LINE = "============================";
+    final static String COMMIT = "commit", TREE = "tree", BLOB = "blob",
+        ROOT = "root", LINE = "============================";
     final static SimpleDateFormat 
         FORM = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
@@ -233,7 +233,7 @@ public class Git {
        /** prints this Entry into std out */
        public void print() { System.out.println(this); }
        /** verifies this Entry using SHA */
-       public void verify() { saveTo(null, null); }
+       public void verify() { saveTo(null, ROOT); }
        /** verifies and saves this Entry into the given folder */
        public abstract void saveTo(File dir, String nam);
     }
@@ -253,7 +253,7 @@ public class Git {
        /** returns the actual data (folder structure) in this Commit */
        public Tree getTree() { 
            if (hTree == null) return null;
-           return makeTree(hTree, "root");
+           return makeTree(hTree, ROOT);
        }
        /** returns the previous Commit */
        public Commit getParent1() { 
@@ -272,7 +272,7 @@ public class Git {
        /** the data (folder structure) in a Node for displaying */
        public Node toTreeNode() {
            Node n = new Node(this);
-           Node[] na = { getTree().toTreeNode("root", n) };
+           Node[] na = { getTree().toTreeNode(ROOT, n) };
            n.setData(na); return n;
        }
        /**  */
@@ -326,7 +326,7 @@ public class Git {
        }
        /**  */
        public void saveTo(File dir, String nam) {
-           System.out.println(this);
+           System.out.println(this+nam);
            File f = null;
            if (dir != null) {
               f = new File(dir, nam);
