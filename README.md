@@ -43,12 +43,12 @@ Load the tree of this Commit:  `t = c.getTree()`  This is a Git object of the se
 
 Get the first child in the tree:  `b = t.getChildAt(0)`  This is a Git object of the third kind: a file.
 
-Finally, display the tree:  `Menu.toTree(t);`
+Finally, make and display the tree:  `n = c.toTreeNode(); Menu.toTree(n);`
 
 ![display tree](images/display%20tree.PNG)
 
 
-### Earlier Work
+### Version History
 
 #### V0. GitObjects.java
 
@@ -57,7 +57,7 @@ It all started with [an excellent article](https://hackernoon.com/https-medium-c
 It worked fine, but the story is incomplete: Most Git objects are packed!
 
 
-### V1. GitInspector becomes Git.java
+#### V1. GitInspector becomes Git.java
 
 Rather than trying to unpack objects, Git should do the work -- use `java.lang.ProcessBuilder` 
 
@@ -77,3 +77,11 @@ tree c9d0f5  2 items ***  parent 7bb2af
 tree bcadff  1 items ***
 ============================================================
 ````
+
+#### V2. verfiy() and saveTo(File)
+
+#### V3. Objects are cached
+
+#### V4. TreeNode is separated from Git objects
+
+
